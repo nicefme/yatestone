@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
+from rest_framework import filters
 
 from .models import Organization, Employee, PhoneNumber, PhoneType, Moderator
 from .serializers import (OrganizationSerializer,
@@ -15,18 +16,25 @@ from .serializers import (OrganizationSerializer,
                           EmployeeCreateSerializer,
                           ModeratorSerializer,
                           ModeratorCreateSerializer,
-                          OrganizationModeratorUpdateSerializer)
+                          ModeratorOrganizationSerializer)
 from .permissions import (IsOwnerOrAdminOrReadOnly,
-                          IsOwnerOrAdminOrModeratorOrReadOnly)
+                          IsOwnerOrAdminOrModeratorOrReadOnlyForOrg,
+                          IsOwnerOrAdminOrModeratorOrReadOnlyForEmp)
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     #serializer_class = OrganizationSerializer
-    permission_classes = [IsOwnerOrAdminOrModeratorOrReadOnly, ]
+    permission_classes = [IsOwnerOrAdminOrModeratorOrReadOnlyForOrg, ]
     pagination_class = PageNumberPagination
-
-    #def get_permissions(self):
+    search_fields = [
+        'name',
+    #    'organizations_of_employees__second_name',
+     #   'organizations_of_employees__first_name',
+     #   'organizations_of_employees__patronymic',
+        'organizations_of_employees__employee__phone_number'
+    ]
+    filter_backends = (filters.SearchFilter,)
 
     
     def get_serializer_class(self):
@@ -37,14 +45,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = Employee.objects.all()
-    permission_classes = [IsOwnerOrAdminOrReadOnly, ]
+   # queryset = Employee.objects.all()
+    permission_classes = [IsOwnerOrAdminOrModeratorOrReadOnlyForEmp, ]
     pagination_class = PageNumberPagination
 
- #   def get_queryset(self):
-  #      organization_id = self.request.parser_context['kwargs'].get('organization_id')
-  #      queryset = Organization.objects.filter(id=organization_id)
-  #      return queryset
+    def get_queryset(self):
+        organization_id = self.request.parser_context['kwargs'].get('organization_id')
+        queryset = Employee.objects.filter(organization=organization_id)
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method in ('POST', 'PUT', 'PATCH'):
@@ -91,3 +99,15 @@ class ModeratorViewSet(viewsets.ModelViewSet):
             return ModeratorCreateSerializer
 
         return ModeratorSerializer
+
+
+class ModeratorAPIView(APIView):
+    def get(self, request):
+        user = request.user
+        moderator = Moderator.objects.filter(moderator_id=user.id)
+        serializer = ModeratorOrganizationSerializer(moderator, many=True)
+        context = {
+            'user': f'{user}',
+            'moderator': serializer.data
+        }
+        return Response(context)

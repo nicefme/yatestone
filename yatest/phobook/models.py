@@ -21,6 +21,7 @@ class Organization(models.Model):
     )
     list_of_employees = models.ManyToManyField(
         'Employee',
+        blank=True,
         verbose_name = 'Список сотрудников',
         related_name='list_of_employees'
     )
@@ -31,12 +32,12 @@ class Organization(models.Model):
         verbose_name='Создатель справочника организации')
 
     class Meta:
-        ordering = ['name']
+        #ordering = ['name']
         verbose_name = 'Организация'
         verbose_name_plural = 'Организации'
 
     def __str__(self):
-        return self.name
+        return f'{self.pk}. {self.name}'
 
 
 class Employee(models.Model):
@@ -60,6 +61,14 @@ class Employee(models.Model):
         blank=False,
         verbose_name='Должность'
     )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        blank=False,
+        null=True,
+        related_name='organizations_of_employees',
+        verbose_name='Организация'
+    )
     phone_numbers = models.ManyToManyField(
         'PhoneType',
         through='PhoneNumber',
@@ -67,14 +76,6 @@ class Employee(models.Model):
         verbose_name = 'Телефонные номера',
         related_name='phone_of_employee'
     )
-  #  organization = models.ForeignKey(
-   #     Organization,
-    #    on_delete=models.CASCADE,
-     #   blank=True,
-      #  null=True,
-       # verbose_name='Сотрудник',
-       # related_name='employee'
-    #)
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -82,11 +83,12 @@ class Employee(models.Model):
         verbose_name='Создатель сотрудника')
 
     class Meta:
+        ordering = ['organization', 'id']
         verbose_name = 'Сотрудник'
         verbose_name_plural = 'Сотрудники'
 
     def __str__(self):
-        return f'{self.second_name} {self.first_name} {self.patronymic} ({self.position})'
+        return f'{self.pk}. {self.organization} - {self.second_name} {self.first_name} {self.patronymic} ({self.position})'
 
 class PhoneType(models.Model):
     type = models.CharField(
@@ -161,4 +163,4 @@ class Moderator(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.author} предоставил доступ {self.moderator} к организации {self.organization}'
+        return f'{self.pk}. {self.author} предоставил доступ {self.moderator} к организации {self.organization}'

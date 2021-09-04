@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from .models import Organization, Employee, PhoneNumber, PhoneType, Moderator
 from users.serializers import UserSerializer
-
+from .permissions import moderators_lists
 
 User = get_user_model()
 
@@ -33,6 +33,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'first_name',
             'patronymic',
             'position',
+            'organization',
             'phone_numbers'
         )
 
@@ -66,6 +67,7 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
             'first_name',
             'patronymic',
             'position',
+          #  'organization',
             'phone_numbers'
         )
 
@@ -85,9 +87,22 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        types_data = validated_data.pop('phone_numbers')
         author = self.context.get('request').user
-        employee = Employee.objects.create(author=author, **validated_data)
+        organization_id = (self.context['request'].parser_context['kwargs'].
+                           get('organization_id'))
+        queryset = Moderator.objects.filter(organization_id=organization_id).values_list()
+        moderators_list = moderators_lists(queryset)
+        aa = (not author.is_staff)
+        bb = author not in moderators_list
+        #ss
+        if author not in moderators_list and (not author.is_staff):
+            raise serializers.ValidationError(
+                'У вас нет доступа к созданию сотрудников '
+                'этой организации'
+                )
+        types_data = validated_data.pop('phone_numbers')
+        
+        employee = Employee.objects.create(author=author, organization_id=organization_id, **validated_data)
         employee.save()
         self.create_bulk_phone_numbers(employee, types_data)
         return employee
@@ -96,11 +111,15 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         types_data = validated_data.pop('phone_numbers')
         PhoneNumber.objects.filter(employee=instance).delete()
+       # if types_data is None:
+      #      ss = types_data is None
+       #     dd
         self.create_bulk_phone_numbers(instance, types_data)
         instance.second_name = validated_data.pop('second_name')
         instance.first_name = validated_data.pop('first_name')
         instance.patronymic = validated_data.pop('patronymic')
         instance.position = validated_data.pop('position')
+        #instance.organization = validated_data.pop('organization')
         instance.save()
         return instance
 
@@ -125,36 +144,56 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
-    list_of_employees = EmployeeSerializer(many=True, read_only=True)
+   # list_of_employees = EmployeeSerializer(many=True, read_only=True)
     author = serializers.SlugRelatedField(
         queryset = User.objects.all(),
         slug_field='email'
     )
+    list_of_employees = serializers.SerializerMethodField()
     class Meta:
         model = Organization
         fields = (
             'id',
             'author',
-            'address',
             'name',
+            'address',
             'description',
-            'list_of_employees'
+            'list_of_employees',
+            #'eee'
         )
 
-
+    def get_list_of_employees(self, obj):
+        name = obj
+        qs = Employee.objects.filter(organization_id=name.id)
+        #ss = EmployeeSerializer(qs, many=True).data
+        #dd
+        return EmployeeSerializer(qs, many=True).data
 
 class OrganizationCreateSerializer(serializers.ModelSerializer):
    # author = UserSerializer(read_only=True)
-
+  #  list_of_employees = serializers.SerializerMethodField()
+   # eee = serializers.SerializerMethodField()
     class Meta:
         model = Organization
         fields = (
          #   'author',
-            'address',
             'name',
+            'address',
             'description',
-            'list_of_employees'
+            'list_of_employees',
+            #'eee'
         )
+
+   # def get_list_of_employees(self, obj):
+    #    name = obj
+     #   qs = Employee.objects.filter(organization_id=name.id)
+     #   ss
+     #   return EmployeeSerializer(qs, many=True).data
+
+        #phone = obj
+       # dd
+        #qs = phone.employee.all()
+        #return EmployeeSerializer(qs, many=True).data
 
     #@transaction.atomic
     def create(self, validated_data):
@@ -190,22 +229,22 @@ class OrganizationCreateSerializer(serializers.ModelSerializer):
         return data
 
 
-class OrganizationModeratorUpdateSerializer(OrganizationCreateSerializer):
+#class OrganizationModeratorUpdateSerializer(OrganizationCreateSerializer):
    # def create(self, validated_data):
     #    raise serializers.ValidationError(
     #            'У вас нет доступа для создания ')
 
-    def update(self, instance, validated_data):
-        a = instance.address#get_object_or_404(Organization, id=instance.id)
-        validated_data['address']=instance.address
-        validated_data['description']=instance.description
-        validated_data['name']=instance.name
-
+   # def update(self, instance, validated_data):
+    #    a = instance.address#get_object_or_404(Organization, id=instance.id)
+    #    validated_data['address']=instance.address
+    #    validated_data['description']=instance.description
+    #    validated_data['name']=instance.name
+#
        # b = validated_data
        # organization_id = (self.context['request'].parser_context['kwargs'].
         #                   get('organization_id'))
        # ss
-        return super().update(instance, validated_data)
+#        return super().update(instance, validated_data)
 
 
 
@@ -288,3 +327,21 @@ class ModeratorCreateSerializer(serializers.ModelSerializer):
             }
         ).data
         return data
+
+
+
+class OrganizationForModeratorOrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = (
+            'id',
+            'name',
+            'address',
+
+        )
+
+class ModeratorOrganizationSerializer(serializers.ModelSerializer):
+    organization = OrganizationForModeratorOrganizationSerializer(read_only=True)#, many=True)
+    class Meta:
+        model = Moderator
+        fields = ('organization', )
