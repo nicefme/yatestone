@@ -67,6 +67,14 @@ class Employee(models.Model):
         verbose_name = 'Телефонные номера',
         related_name='phone_of_employee'
     )
+  #  organization = models.ForeignKey(
+   #     Organization,
+    #    on_delete=models.CASCADE,
+     #   blank=True,
+      #  null=True,
+       # verbose_name='Сотрудник',
+       # related_name='employee'
+    #)
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -120,3 +128,37 @@ class PhoneNumber(models.Model):
 
     def __str__(self):
         return f'{self.type}: {self.phone_number}'
+
+
+class Moderator(models.Model):
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='creater',
+        verbose_name='Создатель'
+    )
+    moderator = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='moderator',
+        verbose_name='Модератор'
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='organizations',
+        verbose_name='Организация'
+    )
+
+    class Meta:
+        verbose_name = 'Модератор организации'
+        verbose_name_plural = 'Модераторы организации'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['author', 'moderator', 'organization'],
+                name='unique_moderator'
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.author} предоставил доступ {self.moderator} к организации {self.organization}'

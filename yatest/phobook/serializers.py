@@ -1,9 +1,11 @@
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
-from django.db import transaction
+from django.db import transaction, IntegrityError
+from django.core.exceptions import ObjectDoesNotExist
 
-from .models import Organization, Employee, PhoneNumber, PhoneType
+from .models import Organization, Employee, PhoneNumber, PhoneType, Moderator
 from users.serializers import UserSerializer
 
 
@@ -124,11 +126,15 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
 
 class OrganizationSerializer(serializers.ModelSerializer):
     list_of_employees = EmployeeSerializer(many=True, read_only=True)
-
+    author = serializers.SlugRelatedField(
+        queryset = User.objects.all(),
+        slug_field='email'
+    )
     class Meta:
         model = Organization
         fields = (
             'id',
+            'author',
             'address',
             'name',
             'description',
@@ -160,11 +166,122 @@ class OrganizationCreateSerializer(serializers.ModelSerializer):
             organization.list_of_employees.add(employee.id)
         return organization
 
-
+    def update(self, instance, validated_data):
+        user = self.context.get('request').user
+        author = instance.author
+        if (author != user and (not user.is_staff)
+            and (validated_data['address'] != instance.address
+                 or validated_data['description'] != instance.description
+                 or validated_data['name'] != instance.name)):
+            raise serializers.ValidationError(
+                ('У вас нет доступа к редактированию данных '
+                'организации (название, адрес, описание)')
+            )
+        return super().update(instance, validated_data)
 
 
     def to_representation(self, instance):
         data = OrganizationSerializer(
+            instance,
+            context={
+                'request': self.context.get('request')
+            }
+        ).data
+        return data
+
+
+class OrganizationModeratorUpdateSerializer(OrganizationCreateSerializer):
+   # def create(self, validated_data):
+    #    raise serializers.ValidationError(
+    #            'У вас нет доступа для создания ')
+
+    def update(self, instance, validated_data):
+        a = instance.address#get_object_or_404(Organization, id=instance.id)
+        validated_data['address']=instance.address
+        validated_data['description']=instance.description
+        validated_data['name']=instance.name
+
+       # b = validated_data
+       # organization_id = (self.context['request'].parser_context['kwargs'].
+        #                   get('organization_id'))
+       # ss
+        return super().update(instance, validated_data)
+
+
+
+class ModeratorSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(
+        read_only=True,
+        slug_field='email'
+    )
+    moderator = serializers.SlugRelatedField(
+        read_only=True,
+        slug_field='email'
+    )
+    organization = serializers.SlugRelatedField(
+        read_only=True,
+        slug_field='name'
+    )
+
+    class Meta:
+        model = Moderator
+        fields = ('id', 'author', 'moderator', 'organization')
+
+
+
+class ModeratorCreateSerializer(serializers.ModelSerializer):
+   # moderator = serializers.SerializerMethodField()
+   # author = serializers.CharField()
+    moderator = serializers.SlugRelatedField(queryset = User.objects.all(), slug_field='email')
+    #organization = serializers.SlugRelatedField(read_only=True, slug_field='name')
+   # organization = serializers.CharField()
+    class Meta:
+        model = Moderator
+        fields = ('moderator', )
+      #  validators = [
+      #      UniqueTogetherValidator(
+      #          queryset=Moderator.objects.all(),
+       #         fields=['author', 'moderator', 'organization'],
+       #         message=('Вы уже предоставили права модератора пользователю для этой организации.')
+      #      )
+      #  ]
+
+
+    def create(self, validated_data):
+        organization_id = (self.context['request'].parser_context['kwargs'].
+                           get('organization_id'))
+        try:
+            author_id = Organization.objects.get(id=organization_id).author_id
+        except Organization.DoesNotExist:
+            raise serializers.ValidationError(
+                'Организация отсутствует'
+            )
+        moderator_id = validated_data.get('moderator').id
+        user = self.context.get('request').user
+       # ss = not user.is_staff
+        #tt = user.is_staff
+        #ff
+        if author_id != user.id and (not user.is_staff):
+            raise serializers.ValidationError(
+                'У вас нет прав доступа для добавления пользователя в модераторы'
+            )
+        if author_id == moderator_id:
+            raise serializers.ValidationError(
+                'Вы не можете добавить автора в список модераторов'
+            )
+        try:
+            organization = Moderator.objects.create(author_id=user.id, organization_id=organization_id, **validated_data)
+            organization.save()
+            return organization
+        except IntegrityError:
+            raise serializers.ValidationError(
+                'Модератор уже добавлен в организацию'
+            )
+        
+
+
+    def to_representation(self, instance):
+        data = ModeratorSerializer(
             instance,
             context={
                 'request': self.context.get('request')
