@@ -56,15 +56,7 @@ class OrganizationFilter(filters.FilterSet):
             'type',
             'phone_number'
         )
-    def full_name_method(self, queryset, name, value):
-        user = self.request.user
-        a = queryset
-        b = name
-        c = value
-        ss
-        if value:
-            return Employee.objects.filter()
-        return Employee.objects.all()
+
 
   #  is_favorited = filters.BooleanFilter(
   #      method='get_is_favorited'
