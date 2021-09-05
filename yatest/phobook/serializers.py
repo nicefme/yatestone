@@ -6,8 +6,7 @@ from django.db import transaction, IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
 
 from .models import Organization, Employee, PhoneNumber, PhoneType, Moderator
-from users.serializers import UserSerializer
-from .permissions import moderators_lists
+from .functions import moderators_lists
 
 User = get_user_model()
 
@@ -70,7 +69,16 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
           #  'organization',
             'phone_numbers'
         )
-
+       # validators = [
+       #     UniqueTogetherValidator(
+       #         queryset=Employee.objects.all(),
+       ##         fields=[
+       #             'second_name', 'first_name',
+       #             'patronymic', 'organization'
+       #         ],
+       #         message=('В одной организации невозможно добавить сотрудников с одинаковыми ФИО')
+       #     )
+       # ]
     def create_bulk_phone_numbers(self, employee, types_data):
         try:
             PhoneNumber.objects.bulk_create([
@@ -92,20 +100,39 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
                            get('organization_id'))
         queryset = Moderator.objects.filter(organization_id=organization_id).values_list()
         moderators_list = moderators_lists(queryset)
+
         aa = (not author.is_staff)
-        bb = author not in moderators_list
-        #ss
-        if author not in moderators_list and (not author.is_staff):
+        bb = author.id not in moderators_list
+        author_org = get_object_or_404(Organization, id=organization_id).author
+        cc = author.id != author_org.id
+        #dd = validated_data
+
+
+        
+        if author.id not in moderators_list and (not author.is_staff) and author.id != author_org.id:
+           # return validate_moderators()
             raise serializers.ValidationError(
                 'У вас нет доступа к созданию сотрудников '
                 'этой организации'
                 )
         types_data = validated_data.pop('phone_numbers')
-        
-        employee = Employee.objects.create(author=author, organization_id=organization_id, **validated_data)
-        employee.save()
-        self.create_bulk_phone_numbers(employee, types_data)
-        return employee
+
+        # for type in types_data:
+        #     type_value = list(type.values())[0].type
+        #     if list(type.values())[0].type == 'Личный':
+
+
+
+
+        try:
+            employee = Employee.objects.create(author=author, organization_id=organization_id, **validated_data)
+            employee.save()
+            self.create_bulk_phone_numbers(employee, types_data)
+            return employee
+        except IntegrityError:
+            raise serializers.ValidationError(
+                'В одной организации невозможно добавить сотрудников с одинаковыми ФИО'
+            )
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -131,7 +158,10 @@ class EmployeeCreateSerializer(serializers.ModelSerializer):
                 'request': self.context.get('request')
             }
         ).data
+        
         return data
+
+
 
 
     def validate_phone_numbers(self, data):
@@ -180,7 +210,7 @@ class OrganizationCreateSerializer(serializers.ModelSerializer):
             'name',
             'address',
             'description',
-            'list_of_employees',
+#            'list_of_employees',
             #'eee'
         )
 
@@ -198,11 +228,11 @@ class OrganizationCreateSerializer(serializers.ModelSerializer):
     #@transaction.atomic
     def create(self, validated_data):
         author = self.context.get('request').user
-        list_of_employees_data = validated_data.pop('list_of_employees')
+#        list_of_employees_data = validated_data.pop('list_of_employees')
         organization = Organization.objects.create(author=author, **validated_data)
         organization.save()
-        for employee in list_of_employees_data:
-            organization.list_of_employees.add(employee.id)
+#        for employee in list_of_employees_data:
+#            organization.list_of_employees.add(employee.id)
         return organization
 
     def update(self, instance, validated_data):

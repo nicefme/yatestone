@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from phonenumber_field.modelfields import PhoneNumberField
 
 User = get_user_model()
 
@@ -63,9 +64,9 @@ class Employee(models.Model):
     )
     organization = models.ForeignKey(
         Organization,
-        on_delete=models.SET_NULL,
-        blank=False,
-        null=True,
+        on_delete=models.CASCADE,
+        blank=True,
+        #null=True,
         related_name='organizations_of_employees',
         verbose_name='Организация'
     )
@@ -86,7 +87,15 @@ class Employee(models.Model):
         ordering = ['organization', 'id']
         verbose_name = 'Сотрудник'
         verbose_name_plural = 'Сотрудники'
-
+        constraints = [
+            models.UniqueConstraint(
+                fields=[            
+                    'second_name', 'first_name',
+                    'patronymic', 'organization'
+                ],
+                name='unique_employee'
+            )
+        ]
     def __str__(self):
         return f'{self.pk}. {self.organization} - {self.second_name} {self.first_name} {self.patronymic} ({self.position})'
 
@@ -117,12 +126,14 @@ class PhoneNumber(models.Model):
         verbose_name='Сотрудник',
         related_name='employee'
     )
-    phone_number = models.CharField(
-        max_length=14,
-        verbose_name='Телефонный номер',
-        default='+',
-        help_text='Формат для междугороднего сообщения, начинающийся с "+"'
-    )
+    phone_number = PhoneNumberField()
+    
+    #models.CharField(
+   #     max_length=14,
+    #    verbose_name='Телефонный номер',
+    #    default='+',
+    #    help_text='Формат для междугороднего сообщения, начинающийся с "+"'
+    #)
 
     class Meta:
         verbose_name = 'Телефонный номер'

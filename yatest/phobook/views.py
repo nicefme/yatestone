@@ -18,23 +18,38 @@ from .serializers import (OrganizationSerializer,
                           ModeratorCreateSerializer,
                           ModeratorOrganizationSerializer)
 from .permissions import (IsOwnerOrAdminOrReadOnly,
+                          IsOwnerOrAdminOrReadOnlyEml,
                           IsOwnerOrAdminOrModeratorOrReadOnlyForOrg,
                           IsOwnerOrAdminOrModeratorOrReadOnlyForEmp)
-
+from .filters import OrganizationFilter, EmployeeFilter
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
-    #serializer_class = OrganizationSerializer
-    permission_classes = [IsOwnerOrAdminOrModeratorOrReadOnlyForOrg, ]
+    filter_class = OrganizationFilter
     pagination_class = PageNumberPagination
-    search_fields = [
-        'name',
+    permission_classes = [IsOwnerOrAdminOrModeratorOrReadOnlyForOrg, ]
+    permission_classes_by_action = {
+        'create': [IsAuthenticated],
+        'destroy': [IsOwnerOrAdminOrReadOnly]
+    }
+
+    def get_permissions(self):
+        try:
+            return (permission() for permission in
+                    self.permission_classes_by_action[self.action])
+        except KeyError:
+            return (permission() for permission in self.permission_classes)
+
+
+
+  #  search_fields = [
+   #     'name',
     #    'organizations_of_employees__second_name',
      #   'organizations_of_employees__first_name',
      #   'organizations_of_employees__patronymic',
-        'organizations_of_employees__employee__phone_number'
-    ]
-    filter_backends = (filters.SearchFilter,)
+     #   'organizations_of_employees__employee__phone_number'
+   # ]
+  #  filter_backends = (filters.SearchFilter,)
 
     
     def get_serializer_class(self):
@@ -45,9 +60,20 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-   # queryset = Employee.objects.all()
-    permission_classes = [IsOwnerOrAdminOrModeratorOrReadOnlyForEmp, ]
+    filter_class = EmployeeFilter
     pagination_class = PageNumberPagination
+    permission_classes = [IsOwnerOrAdminOrModeratorOrReadOnlyForEmp, ]
+    permission_classes_by_action = {
+        'create': [IsAuthenticated],
+        'destroy': [IsOwnerOrAdminOrReadOnlyEml]
+    }
+
+    def get_permissions(self):
+        try:
+            return (permission() for permission in
+                    self.permission_classes_by_action[self.action])
+        except KeyError:
+            return (permission() for permission in self.permission_classes)
 
     def get_queryset(self):
         organization_id = self.request.parser_context['kwargs'].get('organization_id')
