@@ -33,12 +33,12 @@ class Organization(models.Model):
         verbose_name='Создатель справочника организации')
 
     class Meta:
-        #ordering = ['name']
+        ordering = ['name']
         verbose_name = 'Организация'
         verbose_name_plural = 'Организации'
 
     def __str__(self):
-        return f'{self.pk}. {self.name}'
+        return f'{self.name}'
 
 
 class Employee(models.Model):
@@ -66,7 +66,6 @@ class Employee(models.Model):
         Organization,
         on_delete=models.CASCADE,
         blank=True,
-        #null=True,
         related_name='organizations_of_employees',
         verbose_name='Организация'
     )
@@ -97,7 +96,7 @@ class Employee(models.Model):
             )
         ]
     def __str__(self):
-        return f'{self.pk}. {self.organization} - {self.second_name} {self.first_name} {self.patronymic} ({self.position})'
+        return f'{self.second_name} {self.first_name} {self.patronymic} ({self.position})'
 
 class PhoneType(models.Model):
     type = models.CharField(
@@ -127,13 +126,6 @@ class PhoneNumber(models.Model):
         related_name='employee'
     )
     phone_number = PhoneNumberField()
-    
-    #models.CharField(
-   #     max_length=14,
-    #    verbose_name='Телефонный номер',
-    #    default='+',
-    #    help_text='Формат для междугороднего сообщения, начинающийся с "+"'
-    #)
 
     class Meta:
         verbose_name = 'Телефонный номер'
@@ -174,4 +166,4 @@ class Moderator(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.pk}. {self.author} предоставил доступ {self.moderator} к организации {self.organization}'
+        return f'{self.author} предоставил доступ {self.moderator} к организации {self.organization}'

@@ -32,7 +32,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'first_name',
             'patronymic',
             'position',
-            'organization',
+           # 'organization',
             'phone_numbers'
         )
 
@@ -367,7 +367,6 @@ class OrganizationForModeratorOrganizationSerializer(serializers.ModelSerializer
             'id',
             'name',
             'address',
-
         )
 
 class ModeratorOrganizationSerializer(serializers.ModelSerializer):
