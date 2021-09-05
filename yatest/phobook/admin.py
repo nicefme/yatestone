@@ -3,7 +3,6 @@ from django.contrib import admin
 from .models import Organization, Employee, PhoneNumber, PhoneType, Moderator
 
 
-
 class OrganizationAdmin(admin.ModelAdmin):
     list_display = (
         'id',

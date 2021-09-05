@@ -2,7 +2,9 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from phonenumber_field.modelfields import PhoneNumberField
 
+
 User = get_user_model()
+
 
 class Organization(models.Model):
     address = models.CharField(
@@ -23,7 +25,7 @@ class Organization(models.Model):
     list_of_employees = models.ManyToManyField(
         'Employee',
         blank=True,
-        verbose_name = 'Список сотрудников',
+        verbose_name='Список сотрудников',
         related_name='list_of_employees'
     )
     author = models.ForeignKey(
@@ -73,7 +75,7 @@ class Employee(models.Model):
         'PhoneType',
         through='PhoneNumber',
         blank=True,
-        verbose_name = 'Телефонные номера',
+        verbose_name='Телефонные номера',
         related_name='phone_of_employee'
     )
     author = models.ForeignKey(
@@ -88,15 +90,18 @@ class Employee(models.Model):
         verbose_name_plural = 'Сотрудники'
         constraints = [
             models.UniqueConstraint(
-                fields=[            
+                fields=[
                     'second_name', 'first_name',
                     'patronymic', 'organization'
                 ],
                 name='unique_employee'
             )
         ]
+
     def __str__(self):
-        return f'{self.second_name} {self.first_name} {self.patronymic} ({self.position})'
+        return (f'{self.second_name} {self.first_name} '
+                f'{self.patronymic} ({self.position})')
+
 
 class PhoneType(models.Model):
     type = models.CharField(
@@ -166,4 +171,5 @@ class Moderator(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.author} предоставил доступ {self.moderator} к организации {self.organization}'
+        return (f'{self.author} предоставил доступ '
+                f'{self.moderator} к организации {self.organization}')
